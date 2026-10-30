@@ -386,11 +386,15 @@
     }
     .preview-label { font-size: 0.75rem; color: var(--color-muted); }
 
+    .site-footer { text-align: center; font-size: 0.8rem; color: var(--color-muted); padding: var(--space-2) var(--space-3) var(--space-5); }
+    .site-footer a { color: var(--color-accent); }
+
     /* Bench bar: phones only, pinned to the bottom so bench players are always next to the pitch. */
     .bench-bar { display: none; }
 
     @media (max-width: 820px) {
-      .app { grid-template-columns: 1fr; padding: var(--space-3) var(--space-3) 110px; gap: var(--space-4); }
+      .app { grid-template-columns: 1fr; padding: var(--space-3); gap: var(--space-4); }
+      body:not(.view-ticker):not(.viewing) .site-footer { padding-bottom: 120px; } /* room for the bench bar */
       .pool { max-height: none; overflow: visible; }
       .pitch { width: 100%; }
       main { order: -1; }
@@ -467,7 +471,7 @@
 
     @media print {
       body { background: #fff; color: #000; }
-      .panel, .toolbar, .hint, .view-banner, dialog, .tabs, .ticker, .bench-bar { display: none !important; }
+      .panel, .toolbar, .hint, .view-banner, dialog, .tabs, .ticker, .bench-bar, .site-footer { display: none !important; }
       .app { display: block; padding: 0; }
       .print-only { display: block; }
       .print-title { font-size: 1.4rem; margin-bottom: 8px; text-align: center; }
@@ -581,6 +585,10 @@
     </section>
     <button type="button" class="danger" id="newMatchBtn">Neues Spiel</button>
   </section>
+
+  <footer class="site-footer">
+    Torfunk · <a href="https://github.com/jhoxyz/torfunk#readme" target="_blank" rel="noopener">Anleitung &amp; Infos</a>
+  </footer>
 
   <div class="bench-bar edit-only" id="benchBar" data-drop="pool">
     <div class="bench-head"><strong>Bank</strong><span id="benchHint"></span></div>

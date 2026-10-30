@@ -9,7 +9,7 @@ Ideas collected for later. Nothing here is started yet — only work on an item 
 3. **Preferred positions** — favourite positions per player; warn when someone plays out of position.
 4. **Several saved lineups** — one per match/opponent, to compare plan A and plan B.
 5. ~~**Sharing**~~ — **done (2026-10-30):** Share button → lineup image incl. substitutes (share sheet on phones → WhatsApp, or download), link via WhatsApp / copy link (read-only view with "Import into my planner").
-    - Open: links and phone sharing need the file hosted on HTTPS (any static host, no server code). Not yet tested on a real phone.
+    - Tested on a real phone via GitHub Pages (2026-10-30): works.
 6. **Captain and set-piece takers** — armband, penalties, corners, free kicks.
 7. **Smaller youth formats** — 5-, 7- and 9-a-side pitches and formations.
 8. **Playing-time tracker** — substitution times and minutes per player over a season (fair playing time in youth football).
@@ -24,15 +24,15 @@ Ideas collected for later. Nothing here is started yet — only work on an item 
 13. **Login + web deployment** — accounts so coaches can use it online and keep their data across devices.
     - **Deferred (2026-10-30):** user decided to skip the server/login part for now. Keep the app serverless; don't plan other items around a backend.
 14. **Android / iOS app** — mobile app version.
-15. **GitHub Pages hosting** — publish `index.html` on GitHub Pages (static, HTTPS, no server code). Needed for share links and for sharing images to WhatsApp on phones (see 5); also the base for the PWA (14).
+15. ~~**GitHub Pages hosting**~~ — **done (2026-10-30):** live at https://jhoxyz.github.io/torfunk/, deploys automatically on every push to `main` (≈1 min, plus up to 10 min cache).
+    Original notes: — publish `index.html` on GitHub Pages (static, HTTPS, no server code). Needed for share links and for sharing images to WhatsApp on phones (see 5); also the base for the PWA (14).
     - Done (2026-10-30): git repo + public GitHub repo https://github.com/jhoxyz/torfunk.
-    - Still to do: enable Pages (repo Settings → Pages → branch `main`, folder `/`) → https://jhoxyz.github.io/torfunk/
     - Note: a public Pages site is visible to anyone with the URL. Squad data stays in each browser, but a share link contains the whole squad.
 
 16. ~~**Live ticker with WhatsApp sharing**~~ — **done (2026-10-30):** tab "Live-Ticker", German messages, one person runs it.
     - Built: team name + short name (kept), opponent + short name, home/away, half length; clock with minute correction; phase button (Anpfiff → Halbzeit → 2. Halbzeit → Abpfiff); events goal / goal against (opponent shirt number) / substitution (several at once) / card / chance / note; WhatsApp preview; event log (resend, edit, delete); kickoff message with lineup, final summary. Substitutions and red cards update the lineup. Screen stays on during the match (https only).
     - Decided: one ticker person only; German messages; opponents are identified by shirt number only.
-    - Not yet tested with real WhatsApp on a phone.
+    - Tested with real WhatsApp on a phone (2026-10-30): works.
     - Original notes:
     - **WhatsApp formatting available** (plain text with markers, no colours/headings/tables):
       `*bold*`, `_italic_`, `~strikethrough~`, ` ```monospace``` `, `` `inline code` ``,
