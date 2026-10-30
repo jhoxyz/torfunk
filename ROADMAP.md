@@ -66,6 +66,10 @@ Ideas collected for later. Nothing here is started yet — only work on an item 
       - Long videos are big over mobile data; short clips (≤ 30 s) work best. The browser can't compress videos easily.
     - **Privacy:** youth teams — photos/videos of children need the parents' consent (DSGVO). Worth a short reminder in the app before the first photo, and an agreement in the team.
 
+18. **License** (2026-10-30) — the repo is public but has no license yet: others may look at the code, but not legally reuse, change or share it.
+    - Options: **MIT** (short, anyone may reuse it, also commercially; only the copyright notice must stay), **GPL-3.0** (reuse allowed, but changed versions must stay open source too), **no license** (all rights reserved).
+    - If chosen: add a `LICENSE` file and a short section in the README. The copyright line should use the GitHub name (jhoxyz), not the real name (see AGENTS.md: no personal data in the repo).
+
 ## Architecture notes for the bigger ideas
 
 - Items 11, 13 and 14 (and storing pictures across devices for 12) don't fully fit the current setup: one HTML file, no backend, works offline. They need a backend (auth + database + file storage). Decide on the stack with the user before starting and update `AGENTS.md` once decided.
