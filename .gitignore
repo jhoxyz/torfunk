@@ -1,0 +1,14 @@
+# OS / editor
+.DS_Store
+*.swp
+
+# never commit certificates or keys (serve-https.py keeps them in ~/.local/share/formation-planner/)
+*.key
+*.pem
+*.crt
+
+# test tooling lives outside the project
+node_modules/
+
+# private, machine-specific notes for agents
+AGENTS.local.md

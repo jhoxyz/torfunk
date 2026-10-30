@@ -1,0 +1,2009 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Torfunk</title>
+  <style>
+    :root {
+      --color-bg: #121c16;
+      --color-surface: #1b2920;
+      --color-surface-2: #24362a;
+      --color-border: #34493a;
+      --color-text: #efe9da;
+      --color-muted: #a3ab98;
+      --color-accent: #f2b134;
+      --color-accent-ink: #1d1606;
+      --color-danger: #e0654f;
+      --color-ok: #7cc47f;
+      --color-card-red: #d93a2b;
+      --color-wa-bubble: #005c4b;
+      --color-wa-text: #e9edef;
+      --color-pitch-a: #2e7a3d;
+      --color-pitch-b: #297036;
+      --color-line: rgba(255, 255, 255, 0.78);
+      --color-empty: rgba(255, 255, 255, 0.14);
+      --radius: 10px;
+      --radius-pill: 999px;
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 24px;
+      --font-main: "Segoe UI", system-ui, -apple-system, sans-serif;
+      --font-num: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      --disc: clamp(30px, 6.2vmin, 48px);
+      --shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100%; overscroll-behavior-x: none; /* no swipe-back while swiping the bench */ }
+    body {
+      font-family: var(--font-main);
+      background: var(--color-bg);
+      color: var(--color-text);
+      line-height: 1.45;
+    }
+    body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select: none; }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(280px, 340px) 1fr;
+      gap: var(--space-5);
+      padding: var(--space-5);
+      min-height: 100vh;
+    }
+
+    /* ---------- Side panel ---------- */
+    .panel { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+    .card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: var(--space-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+    .card h2 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--color-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: var(--space-2);
+    }
+    .card h2 small { text-transform: none; letter-spacing: 0; font-weight: normal; }
+    .brand { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; }
+    .brand span { color: var(--color-accent); }
+
+    input, select, button { font: inherit; color: inherit; }
+    input, select {
+      background: var(--color-surface-2);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: var(--space-2) var(--space-3);
+      min-width: 0;
+    }
+    input:focus, select:focus, button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+    button {
+      background: var(--color-surface-2);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: var(--space-2) var(--space-3);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    button:hover { border-color: var(--color-muted); }
+    button.primary { background: var(--color-accent); color: var(--color-accent-ink); border-color: var(--color-accent); font-weight: 600; }
+    button.active { background: var(--color-accent); color: var(--color-accent-ink); border-color: var(--color-accent); }
+    button.danger:hover { border-color: var(--color-danger); color: var(--color-danger); }
+    [hidden] { display: none !important; }
+
+    .row { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+    .row > input, .row > select { flex: 1; }
+    .status { font-size: 0.8rem; color: var(--color-accent); }
+    .status:empty { display: none; }
+    .hint { font-size: 0.8rem; color: var(--color-muted); }
+
+    /* ---------- Squad pool ---------- */
+    .pool {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-1);
+      max-height: 52vh;
+      overflow-y: auto;
+      padding: var(--space-1);
+      margin: calc(-1 * var(--space-1));
+      border-radius: var(--radius);
+      border: 2px dashed transparent;
+    }
+    .pool.drop-target { border-color: var(--color-accent); background: rgba(242, 177, 52, 0.06); }
+    .pool .empty { color: var(--color-muted); font-size: 0.9rem; padding: var(--space-3); text-align: center; }
+    .chip {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-1) var(--space-2);
+      background: var(--color-surface-2);
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      cursor: grab;
+      touch-action: pan-y; /* swipe scrolls the list; hold to drag (see pointerdown) */
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    .chip:hover { border-color: var(--color-border); }
+    .chip.on-pitch { opacity: 0.55; }
+    .chip.selected { border-color: var(--color-accent); opacity: 1; }
+    .chip.dragging { opacity: 0.3; }
+    .chip .num {
+      font-family: var(--font-num);
+      font-size: 0.8rem;
+      width: 2.2em;
+      text-align: center;
+      color: var(--color-accent);
+    }
+    .chip .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chip .pos {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: var(--radius-pill);
+      background: var(--color-accent);
+      color: var(--color-accent-ink);
+    }
+    .chip.unavailable { cursor: default; background: transparent; border-color: var(--color-border); }
+    .chip.unavailable .name { color: var(--color-muted); text-decoration: line-through; }
+    .chip .status-text { font-size: 0.7rem; color: var(--color-muted); }
+    .status-pick {
+      position: relative;
+      flex: none;
+      width: 1.6rem;
+      height: 1.6rem;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      border: 1px solid var(--color-border);
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .status-pick select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; padding: 0; }
+    .status-pick:focus-within { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+    .status-pick[data-status="available"] { color: var(--color-ok); }
+    .status-pick[data-status="injured"] { color: var(--color-card-red); background: #fff; border-color: #fff; font-size: 0.95rem; }
+    .status-pick[data-status="suspended"] { color: var(--color-card-red); border-color: var(--color-card-red); }
+    .status-pick[data-status="unavailable"] { color: var(--color-muted); }
+    .pool .divider {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--color-muted);
+      padding: var(--space-3) var(--space-2) var(--space-1);
+    }
+    .chip .remove {
+      border: none;
+      background: none;
+      color: var(--color-muted);
+      padding: 0 var(--space-1);
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+    .chip .remove:hover { color: var(--color-danger); }
+
+    /* ---------- Main / pitch ---------- */
+    main { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; align-items: center; }
+    .toolbar { display: flex; gap: var(--space-2); flex-wrap: wrap; width: 100%; max-width: 760px; }
+    .toolbar input { flex: 1; min-width: 180px; }
+    .pitch {
+      position: relative;
+      width: min(100%, calc((100vh - 120px) * 68 / 105));
+      min-width: 260px;
+      aspect-ratio: 68 / 105;
+      border-radius: var(--radius);
+      background: repeating-linear-gradient(to bottom, var(--color-pitch-a) 0 10%, var(--color-pitch-b) 10% 20%);
+      box-shadow: var(--shadow);
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .pitch svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .pitch svg * { fill: none; stroke: var(--color-line); stroke-width: 0.3; }
+    .pitch svg .spot { fill: var(--color-line); stroke: none; }
+    .pitch.editing { outline: 2px dashed var(--color-accent); outline-offset: 4px; }
+
+    .slot { position: absolute; width: 0; height: 0; }
+    .slot .disc {
+      position: absolute;
+      width: var(--disc);
+      height: var(--disc);
+      left: 0;
+      top: 0;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-family: var(--font-num);
+      font-size: calc(var(--disc) * 0.36);
+      border: 2px dashed var(--color-line);
+      background: var(--color-empty);
+      color: var(--color-text);
+      cursor: pointer;
+      touch-action: none;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    .slot:not(.filled) .disc { font-size: calc(var(--disc) * 0.26); font-family: var(--font-main); }
+    .slot.filled .disc {
+      border: 2px solid var(--color-accent-ink);
+      background: var(--color-accent);
+      color: var(--color-accent-ink);
+      box-shadow: var(--shadow);
+      cursor: grab;
+    }
+    .slot .name {
+      position: absolute;
+      top: calc(var(--disc) / 2 + 3px);
+      left: 0;
+      transform: translateX(-50%);
+      max-width: 96px;
+      padding: 1px 7px;
+      border-radius: var(--radius-pill);
+      background: rgba(0, 0, 0, 0.62);
+      font-size: 0.75rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      touch-action: none;
+      cursor: grab;
+    }
+    .slot .tag {
+      position: absolute;
+      bottom: calc(var(--disc) / 2 + 2px);
+      left: 0;
+      transform: translateX(-50%);
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: rgba(255, 255, 255, 0.85);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+      pointer-events: none;
+    }
+    .slot.drop-target .disc { transform: translate(-50%, -50%) scale(1.2); border-color: #fff; border-style: solid; }
+    .slot.dragging .disc, .slot.dragging .name { opacity: 0.35; }
+    .slot.selected .disc { box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.85); }
+    .pitch.editing .slot .disc { cursor: move; border-style: dashed; }
+    .pitch.editing .slot.moving .disc { box-shadow: 0 0 0 4px var(--color-accent); }
+    .pitch.has-selection .slot:not(.filled) .disc { border-color: var(--color-accent); }
+
+    .ghost {
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 100;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-1) var(--space-3) var(--space-1) var(--space-1);
+      background: var(--color-accent);
+      color: var(--color-accent-ink);
+      border-radius: var(--radius-pill);
+      font-weight: 700;
+      box-shadow: var(--shadow);
+      transform: translate(-50%, -50%);
+    }
+    .ghost .num {
+      font-family: var(--font-num);
+      background: var(--color-accent-ink);
+      color: var(--color-accent);
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      font-size: 0.8rem;
+    }
+
+    .print-only { display: none; }
+
+    /* ---------- Sharing ---------- */
+    dialog {
+      margin: auto;
+      width: min(440px, calc(100% - 2 * var(--space-4)));
+      max-height: calc(100dvh - 2 * var(--space-4));
+      overflow: auto;
+      padding: var(--space-4);
+      background: var(--color-surface);
+      color: var(--color-text);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+    }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+    .share-body { display: flex; flex-direction: column; gap: var(--space-3); }
+    .share-body h2 { font-size: 1.1rem; }
+    .share-body .row > button { flex: 1; }
+    .share-preview { width: 100%; max-height: 50vh; object-fit: contain; border-radius: var(--radius); background: var(--color-bg); }
+    .view-banner {
+      width: 100%;
+      max-width: 760px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-3);
+      border: 1px solid var(--color-accent);
+      border-radius: var(--radius);
+      background: rgba(242, 177, 52, 0.08);
+    }
+    .view-banner p { flex: 1; min-width: 200px; }
+    body.viewing .edit-only { display: none !important; }
+    body.viewing .status-pick select { pointer-events: none; }
+    body.viewing .chip, body.viewing .slot .disc, body.viewing .slot .name { cursor: default; }
+
+
+    /* ---------- Tabs + live ticker ---------- */
+    .tabs { display: flex; justify-content: center; gap: var(--space-2); padding: var(--space-3) var(--space-3) 0; }
+    .tabs button { flex: 0 1 200px; font-weight: 600; }
+    .tabs button.active { background: var(--color-accent); color: var(--color-accent-ink); border-color: var(--color-accent); }
+    body.view-ticker .app, body.view-ticker .bench-bar { display: none !important; }
+    .ticker { display: none; flex-direction: column; gap: var(--space-3); max-width: 640px; margin: 0 auto; padding: var(--space-3) var(--space-3) var(--space-5); }
+    body.view-ticker .ticker { display: flex; }
+    .ticker summary { cursor: pointer; font-weight: 600; }
+    .grid2 { display: grid; grid-template-columns: 1fr 6.5rem; gap: var(--space-2); }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+    .field { display: flex; flex-direction: column; gap: var(--space-1); font-size: 0.8rem; color: var(--color-muted); min-width: 0; }
+    .field input, .field select { font-size: 1rem; color: var(--color-text); width: 100%; }
+    .scoreboard { align-items: center; text-align: center; }
+    .score-line { display: flex; align-items: center; justify-content: center; gap: var(--space-4); font-size: 1.2rem; font-weight: 700; }
+    .score-line strong { font-family: var(--font-num); font-size: 2.6rem; color: var(--color-accent); line-height: 1.1; }
+    .clock { background: none; border: none; font-family: var(--font-num); color: var(--color-muted); font-size: 1rem; }
+    .phase-btn { width: 100%; padding: var(--space-3); font-size: 1.1rem; }
+    .event-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+    .event-grid button { min-height: 64px; font-size: 1.05rem; font-weight: 600; }
+    .event-grid button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .event-log { list-style: none; display: flex; flex-direction: column; gap: var(--space-1); }
+    .event-log li { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2); background: var(--color-surface-2); border-radius: var(--radius); }
+    .event-log .min { font-family: var(--font-num); color: var(--color-accent); min-width: 3.6em; font-size: 0.85rem; }
+    .event-log .text { flex: 1; min-width: 0; font-size: 0.9rem; }
+    .event-log .sent { color: var(--color-ok); font-size: 0.8rem; }
+    .event-log button { padding: var(--space-1) var(--space-2); }
+    .event-log .empty { background: none; color: var(--color-muted); justify-content: center; }
+    .wa-preview {
+      align-self: flex-end;
+      max-width: 100%;
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius) 0 var(--radius) var(--radius);
+      background: var(--color-wa-bubble);
+      color: var(--color-wa-text);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+    .preview-label { font-size: 0.75rem; color: var(--color-muted); }
+
+    /* Bench bar: phones only, pinned to the bottom so bench players are always next to the pitch. */
+    .bench-bar { display: none; }
+
+    @media (max-width: 820px) {
+      .app { grid-template-columns: 1fr; padding: var(--space-3) var(--space-3) 110px; gap: var(--space-4); }
+      .pool { max-height: none; overflow: visible; }
+      .pitch { width: 100%; }
+      main { order: -1; }
+
+      .bench-bar {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-1);
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 50;
+        padding: var(--space-2) var(--space-3) calc(var(--space-2) + env(safe-area-inset-bottom));
+        background: var(--color-surface);
+        border-top: 2px solid var(--color-border);
+        box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.35);
+      }
+      .bench-bar.drop-target { border-top-color: var(--color-accent); background: var(--color-surface-2); }
+      .bench-head { display: flex; gap: var(--space-2); align-items: baseline; font-size: 0.8rem; color: var(--color-muted); }
+      .bench-head strong { color: var(--color-text); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.75rem; }
+      .bench-head .active { color: var(--color-accent); font-weight: 600; }
+      .bench-list {
+        list-style: none;
+        display: flex;
+        gap: var(--space-2);
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scrollbar-width: none;
+        min-height: 44px;
+        align-items: center;
+      }
+      .bench-list .empty { font-size: 0.85rem; color: var(--color-muted); }
+      .bench-chip {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        min-height: 44px;
+        padding: 0 var(--space-3) 0 var(--space-1);
+        border-radius: var(--radius-pill);
+        background: var(--color-surface-2);
+        border: 2px solid var(--color-border);
+        font-weight: 600;
+        white-space: nowrap;
+        touch-action: pan-x; /* swipe scrolls the bar; hold to drag */
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+      }
+      .bench-chip .num {
+        display: grid;
+        place-items: center;
+        min-width: 34px;
+        height: 34px;
+        padding: 0 4px;
+        border-radius: var(--radius-pill);
+        background: var(--color-accent);
+        color: var(--color-accent-ink);
+        font-family: var(--font-num);
+        font-size: 0.85rem;
+      }
+      .bench-chip.selected { border-color: var(--color-accent); background: rgba(242, 177, 52, 0.18); }
+      .bench-chip.dragging { opacity: 0.3; }
+    }
+
+    /* Touch screens: bigger targets for fingers */
+    @media (pointer: coarse) {
+      .chip { min-height: 48px; padding: var(--space-1) var(--space-2); }
+      .chip .remove { padding: var(--space-2) var(--space-3); font-size: 1.4rem; }
+      .status-pick { width: 2.1rem; height: 2.1rem; font-size: 0.9rem; }
+      button, input, select { min-height: 44px; }
+    }
+
+    @media print {
+      body { background: #fff; color: #000; }
+      .panel, .toolbar, .hint, .view-banner, dialog, .tabs, .ticker, .bench-bar { display: none !important; }
+      .app { display: block; padding: 0; }
+      .print-only { display: block; }
+      .print-title { font-size: 1.4rem; margin-bottom: 8px; text-align: center; }
+      .pitch { width: 15cm; margin: 0 auto; box-shadow: none; }
+      .print-subs { margin-top: 10px; text-align: center; font-size: 0.95rem; white-space: pre-line; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="tabs edit-only">
+    <button type="button" data-view="lineup">Aufstellung</button>
+    <button type="button" data-view="ticker">Live-Ticker</button>
+  </nav>
+
+  <div class="app">
+    <aside class="panel">
+      <div class="brand">Tor<span>funk</span></div>
+
+      <section class="card edit-only">
+        <h2>Formation</h2>
+        <select id="formationSelect" aria-label="Formation wählen"></select>
+        <div class="row">
+          <button id="editBtn" title="Positionen auf dem Platz verschieben">Positionen verschieben</button>
+          <button id="saveAsBtn">Speichern als…</button>
+          <button id="updateBtn" class="primary">Änderungen speichern</button>
+          <button id="resetBtn">Zurücksetzen</button>
+          <button id="deleteBtn" class="danger">Löschen</button>
+        </div>
+        <div class="status" id="formationStatus"></div>
+        <p class="hint" id="editHint" hidden>Ziehe die Kreise, um Positionen zu verschieben. Doppelklick auf eine Position benennt sie um.</p>
+      </section>
+
+      <section class="card">
+        <h2>Kader <small id="squadCount"></small></h2>
+        <form id="addForm" class="row edit-only">
+          <input id="addInput" placeholder="z. B. 9 Max Müller – oder mehrere mit Komma" autocomplete="off" aria-label="Spieler hinzufügen">
+          <button class="primary" type="submit">Hinzufügen</button>
+        </form>
+        <ul id="pool" class="pool" data-drop="pool"></ul>
+        <p class="hint edit-only">Ziehe Spieler auf eine Position oder tippe erst den Spieler, dann die Position an. Auf einer besetzten Position wird ausgewechselt. Zurück in die Liste ziehen nimmt einen Spieler vom Platz. Doppelklick auf einen Namen benennt um. Mit dem runden Knopf markierst du Spieler als verletzt, gesperrt oder nicht verfügbar.</p>
+      </section>
+    </aside>
+
+    <main>
+      <div class="view-banner" id="viewBanner" hidden>
+        <p>Du siehst eine geteilte Aufstellung. Dein eigener Kader und deine Aufstellung bleiben unverändert.</p>
+        <button class="primary" id="importBtn">In meinen Planer übernehmen</button>
+        <button id="closeViewBtn">Schließen</button>
+      </div>
+      <div class="toolbar">
+        <input id="titleInput" placeholder="Titel, z. B. gegen FC Musterstadt · Sa 2.11." aria-label="Titel der Aufstellung">
+        <button id="shareBtn" class="primary">Teilen</button>
+        <button id="clearBtn" class="danger edit-only">Aufstellung leeren</button>
+        <button id="printBtn">Drucken</button>
+      </div>
+      <h1 class="print-only print-title" id="printTitle"></h1>
+      <div class="pitch" id="pitch">
+        <svg viewBox="0 0 68 105" preserveAspectRatio="none" aria-hidden="true">
+          <rect x="0.5" y="0.5" width="67" height="104" />
+          <line x1="0.5" y1="52.5" x2="67.5" y2="52.5" />
+          <circle cx="34" cy="52.5" r="9.15" />
+          <circle class="spot" cx="34" cy="52.5" r="0.5" />
+          <rect x="13.84" y="0.5" width="40.32" height="16.5" />
+          <rect x="24.84" y="0.5" width="18.32" height="5.5" />
+          <circle class="spot" cx="34" cy="11.5" r="0.45" />
+          <path d="M26.69 17 A9.15 9.15 0 0 0 41.31 17" />
+          <rect x="13.84" y="88" width="40.32" height="16.5" />
+          <rect x="24.84" y="99" width="18.32" height="5.5" />
+          <circle class="spot" cx="34" cy="93.5" r="0.45" />
+          <path d="M26.69 88 A9.15 9.15 0 0 1 41.31 88" />
+        </svg>
+        <div id="slots"></div>
+      </div>
+      <p class="print-only print-subs" id="printSubs"></p>
+    </main>
+  </div>
+
+  <section class="ticker" id="ticker">
+    <details class="card" id="setupCard">
+      <summary>Spiel-Einstellungen</summary>
+      <div class="grid2">
+        <label class="field">Unser Team <input id="teamName" placeholder="z. B. SV Musterdorf" autocomplete="off"></label>
+        <label class="field">Kürzel <input id="teamShort" placeholder="SVM" maxlength="6" autocomplete="off"></label>
+        <label class="field">Gegner <input id="oppName" placeholder="z. B. FC Musterstadt" autocomplete="off"></label>
+        <label class="field">Kürzel <input id="oppShort" placeholder="FCM" maxlength="6" autocomplete="off"></label>
+        <label class="field">Spielort
+          <select id="homeAway"><option value="home">Heimspiel</option><option value="away">Auswärtsspiel</option></select>
+        </label>
+        <label class="field">Halbzeit (Min.) <input id="halfLength" type="number" min="5" max="60" inputmode="numeric"></label>
+      </div>
+    </details>
+
+    <section class="card scoreboard">
+      <div class="score-line"><span id="sbHome"></span><strong id="sbScore">0:0</strong><span id="sbAway"></span></div>
+      <button type="button" class="clock" id="clock" title="Antippen, um die Spielminute zu korrigieren"></button>
+      <button type="button" class="primary phase-btn" id="phaseBtn"></button>
+    </section>
+
+    <div class="event-grid" id="eventGrid">
+      <button type="button" data-event="goal" id="goalBtn">⚽ Tor</button>
+      <button type="button" data-event="goalAgainst">🥅 Gegentor</button>
+      <button type="button" data-event="sub">🔁 Wechsel</button>
+      <button type="button" data-event="card">🟨 Karte</button>
+      <button type="button" data-event="chance">🎯 Chance</button>
+      <button type="button" data-event="note">💬 Notiz</button>
+    </div>
+
+    <section class="card">
+      <h2>Spielverlauf</h2>
+      <ol class="event-log" id="eventLog"></ol>
+    </section>
+    <button type="button" class="danger" id="newMatchBtn">Neues Spiel</button>
+  </section>
+
+  <div class="bench-bar edit-only" id="benchBar" data-drop="pool">
+    <div class="bench-head"><strong>Bank</strong><span id="benchHint"></span></div>
+    <ul class="bench-list" id="benchList"></ul>
+  </div>
+
+  <dialog id="shareDialog">
+    <div class="share-body">
+      <h2>Aufstellung teilen</h2>
+      <img class="share-preview" id="sharePreview" alt="Vorschau des Aufstellungsbilds">
+      <div class="row">
+        <button class="primary" id="shareImageBtn">Bild teilen (WhatsApp…)</button>
+        <button id="copyImageBtn">Bild kopieren</button>
+        <button id="downloadImageBtn">Bild herunterladen</button>
+      </div>
+      <div class="row">
+        <button id="whatsappLinkBtn">Link per WhatsApp senden</button>
+        <button id="copyLinkBtn">Link kopieren</button>
+      </div>
+      <p class="hint" id="shareNote"></p>
+      <form method="dialog" class="row"><button>Schließen</button></form>
+    </div>
+  </dialog>
+
+  <dialog id="eventDialog">
+    <form class="share-body" id="eventForm">
+      <h2 id="evTitle"></h2>
+      <div class="share-body" id="evFields"></div>
+      <label class="field" id="evMinuteField">Minute <input id="evMinute" inputmode="numeric" placeholder="z. B. 23 oder 45+2" autocomplete="off"></label>
+      <label class="field"><span id="evNoteLabel">Zusatz (optional)</span><input id="evNote" placeholder="z. B. Flachschuss ins lange Eck" autocomplete="off"></label>
+      <span class="preview-label">Vorschau WhatsApp</span>
+      <div class="wa-preview" id="evPreview"></div>
+      <div class="row">
+        <button type="button" class="primary" id="evSend"></button>
+        <button type="button" id="evSave">Nur speichern</button>
+      </div>
+      <div class="row">
+        <button type="button" id="evCopy">Text kopieren</button>
+        <button type="button" class="danger" id="evDelete">Löschen</button>
+        <button type="button" id="evCancel">Abbrechen</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    // ---------- Formation presets (x/y in % of the pitch; own goal at the bottom) ----------
+    // German position abbreviations; also used to convert lineups saved with the old English labels.
+    const LABELS_DE = {
+      GK: 'TW', LB: 'LV', RB: 'RV', CB: 'IV', LCB: 'IV', RCB: 'IV', LWB: 'LAV', RWB: 'RAV',
+      CDM: 'DM', LDM: 'DM', RDM: 'DM', CM: 'ZM', LCM: 'ZM', RCM: 'ZM', CAM: 'OM', LAM: 'LOM', RAM: 'ROM',
+      LW: 'LA', RW: 'RA', LS: 'ST', RS: 'ST',
+    };
+    const toGerman = (positions) => positions.forEach((p) => { p.label = LABELS_DE[p.label] || p.label; });
+    const P = (label, x, y) => ({ label: LABELS_DE[label] || label, x, y });
+    const GK = () => P('GK', 50, 91);
+    const back4 = () => [P('LB', 14, 70), P('LCB', 37, 76), P('RCB', 63, 76), P('RB', 86, 70)];
+    const back3 = () => [P('LCB', 27, 75), P('CB', 50, 77), P('RCB', 73, 75)];
+    const back5 = () => [P('LWB', 10, 64), P('LCB', 30, 75), P('CB', 50, 77), P('RCB', 70, 75), P('RWB', 90, 64)];
+    const twoUp = () => [P('LS', 38, 20), P('RS', 62, 20)];
+
+    // Position order is GK → defence → midfield → attack, so switching formations keeps players in similar roles.
+    const PRESETS = [
+      { id: 'p-442', name: '4-4-2', positions: [GK(), ...back4(), P('LM', 14, 46), P('LCM', 37, 51), P('RCM', 63, 51), P('RM', 86, 46), ...twoUp()] },
+      { id: 'p-433', name: '4-3-3', positions: [GK(), ...back4(), P('LCM', 30, 48), P('CDM', 50, 56), P('RCM', 70, 48), P('LW', 16, 24), P('ST', 50, 17), P('RW', 84, 24)] },
+      { id: 'p-4231', name: '4-2-3-1', positions: [GK(), ...back4(), P('LDM', 37, 58), P('RDM', 63, 58), P('LAM', 16, 35), P('CAM', 50, 37), P('RAM', 84, 35), P('ST', 50, 16)] },
+      { id: 'p-4141', name: '4-1-4-1', positions: [GK(), ...back4(), P('CDM', 50, 60), P('LM', 14, 42), P('LCM', 37, 45), P('RCM', 63, 45), P('RM', 86, 42), P('ST', 50, 17)] },
+      { id: 'p-442d', name: '4-4-2 Raute', positions: [GK(), ...back4(), P('CDM', 50, 60), P('LCM', 30, 48), P('RCM', 70, 48), P('CAM', 50, 37), ...twoUp()] },
+      { id: 'p-352', name: '3-5-2', positions: [GK(), ...back3(), P('LWB', 10, 46), P('LCM', 33, 52), P('CM', 50, 57), P('RCM', 67, 52), P('RWB', 90, 46), ...twoUp()] },
+      { id: 'p-343', name: '3-4-3', positions: [GK(), ...back3(), P('LM', 12, 48), P('LCM', 38, 53), P('RCM', 62, 53), P('RM', 88, 48), P('LW', 20, 24), P('ST', 50, 17), P('RW', 80, 24)] },
+      { id: 'p-532', name: '5-3-2', positions: [GK(), ...back5(), P('LCM', 30, 48), P('CM', 50, 53), P('RCM', 70, 48), ...twoUp()] },
+    ];
+
+    // ---------- State ----------
+    const STORAGE_KEY = 'formation-planner-v1';
+    const uid = () => Math.random().toString(36).slice(2, 10);
+    const clone = (o) => JSON.parse(JSON.stringify(o));
+
+    // Live ticker match; events are kept in the order they were entered.
+    const defaultMatch = (halfLength = 45) => ({
+      opponent: { name: '', short: '' }, home: true, halfLength, phase: 'pre', periodStart: 0, events: [],
+    });
+
+    const state = {
+      players: [],            // { id, name, number }
+      customFormations: [],   // { id, name, positions }
+      formationId: 'p-433',
+      positions: clone(PRESETS[1].positions), // working copy, may differ from the saved formation
+      lineup: [],             // playerId (or null) per position index
+      title: '',
+      team: { name: '', short: '' },
+      match: defaultMatch(),
+      view: 'lineup',         // 'lineup' | 'ticker'
+    };
+    const DEFAULTS = clone(state);
+    // Transient, not persisted. viewing = showing a lineup opened from a share link.
+    const ui = { editMode: false, selected: null, viewing: false, sharedName: '' };
+
+    const allFormations = () => [...PRESETS, ...state.customFormations];
+    const findFormation = (id) => allFormations().find((f) => f.id === id);
+    const currentFormation = () => findFormation(state.formationId);
+    const isCustom = () => state.formationId.startsWith('c-');
+    const isDirty = () => JSON.stringify(state.positions) !== JSON.stringify(currentFormation().positions);
+    const playerById = (id) => state.players.find((p) => p.id === id);
+    const STATUSES = {
+      available: { label: 'Verfügbar', icon: '✓' },
+      injured: { label: 'Verletzt', icon: '✚' },
+      suspended: { label: 'Gesperrt', icon: '▮' },
+      unavailable: { label: 'Nicht verfügbar', icon: '✕' },
+    };
+    const statusOf = (p) => (STATUSES[p.status] ? p.status : 'available');
+    const isAvailable = (p) => statusOf(p) === 'available';
+    const slotOf = (playerId) => { const i = state.lineup.indexOf(playerId); return i === -1 ? null : i; };
+
+    function load() {
+      Object.assign(state, clone(DEFAULTS));
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (saved && Array.isArray(saved.players)) Object.assign(state, saved);
+      } catch { /* start fresh */ }
+      if (!currentFormation()) {
+        state.formationId = PRESETS[1].id;
+        state.positions = clone(PRESETS[1].positions);
+      }
+      if (!Array.isArray(state.positions) || !state.positions.length) state.positions = clone(currentFormation().positions);
+      toGerman(state.positions);
+      state.customFormations.forEach((f) => toGerman(f.positions));
+      state.lineup = state.positions.map((_, i) => {
+        const p = playerById(state.lineup?.[i]);
+        return p && isAvailable(p) ? p.id : null;
+      });
+    }
+
+    function save() {
+      if (ui.viewing) return; // never overwrite the user's own data with a shared lineup
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* storage unavailable */ }
+    }
+
+    function commit() { save(); render(); }
+
+    // ---------- DOM helpers ----------
+    const $ = (s) => document.querySelector(s);
+    const els = {
+      select: $('#formationSelect'), editBtn: $('#editBtn'), saveAsBtn: $('#saveAsBtn'), updateBtn: $('#updateBtn'),
+      resetBtn: $('#resetBtn'), deleteBtn: $('#deleteBtn'), status: $('#formationStatus'), editHint: $('#editHint'),
+      addForm: $('#addForm'), addInput: $('#addInput'), pool: $('#pool'), squadCount: $('#squadCount'),
+      title: $('#titleInput'), clearBtn: $('#clearBtn'), printBtn: $('#printBtn'),
+      pitch: $('#pitch'), slots: $('#slots'), printTitle: $('#printTitle'), printSubs: $('#printSubs'),
+      viewBanner: $('#viewBanner'), importBtn: $('#importBtn'), closeViewBtn: $('#closeViewBtn'),
+      shareBtn: $('#shareBtn'), shareDialog: $('#shareDialog'), sharePreview: $('#sharePreview'),
+      shareImageBtn: $('#shareImageBtn'), downloadImageBtn: $('#downloadImageBtn'),
+      whatsappLinkBtn: $('#whatsappLinkBtn'), copyLinkBtn: $('#copyLinkBtn'), shareNote: $('#shareNote'),
+      copyImageBtn: $('#copyImageBtn'), benchList: $('#benchList'), benchHint: $('#benchHint'),
+    };
+
+    function h(tag, props = {}, ...children) {
+      const el = document.createElement(tag);
+      for (const [k, v] of Object.entries(props)) {
+        if (k === 'class') el.className = v;
+        else if (k === 'dataset') Object.assign(el.dataset, v);
+        else if (k === 'style') Object.assign(el.style, v);
+        else el.setAttribute(k, v);
+      }
+      el.append(...children.filter((c) => c != null));
+      return el;
+    }
+
+    const initials = (name) => name.split(/\s+/).filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+    const badge = (p) => p.number || initials(p.name);
+
+    // ---------- Rendering ----------
+    const formationName = () => (ui.viewing ? ui.sharedName : currentFormation().name);
+
+    function render() {
+      document.body.classList.toggle('viewing', ui.viewing);
+      els.viewBanner.hidden = !ui.viewing;
+      els.title.readOnly = ui.viewing;
+      renderFormationControls();
+      renderPool();
+      renderBench();
+      renderPitch();
+      renderPrint();
+      renderTicker();
+    }
+
+    function renderFormationControls() {
+      els.select.replaceChildren(
+        h('optgroup', { label: 'Standard' }, ...PRESETS.map((f) => h('option', { value: f.id }, f.name))),
+        state.customFormations.length
+          ? h('optgroup', { label: 'Meine Formationen' }, ...state.customFormations.map((f) => h('option', { value: f.id }, f.name)))
+          : null,
+      );
+      els.select.value = state.formationId;
+      const dirty = isDirty();
+      els.updateBtn.hidden = !(isCustom() && dirty);
+      els.resetBtn.hidden = !dirty;
+      els.deleteBtn.hidden = !isCustom();
+      els.status.textContent = dirty ? '● Positionen geändert – speichere sie, um sie als Formation zu behalten' : '';
+      els.editBtn.classList.toggle('active', ui.editMode);
+      els.editBtn.textContent = ui.editMode ? 'Fertig' : 'Positionen verschieben';
+      els.editHint.hidden = !ui.editMode;
+      if (document.activeElement !== els.title) els.title.value = state.title;
+    }
+
+    function renderPool() {
+      const onPitch = state.lineup.filter(Boolean).length;
+      const available = state.players.filter(isAvailable);
+      const out = state.players.filter((p) => !isAvailable(p));
+      els.squadCount.textContent = `${onPitch}/${state.positions.length} auf dem Platz · ${available.length} von ${state.players.length} verfügbar`;
+      if (!state.players.length) {
+        els.pool.replaceChildren(h('li', { class: 'empty' }, 'Noch keine Spieler – füge oben welche hinzu.'));
+        return;
+      }
+      els.pool.replaceChildren(
+        ...available.map(renderChip),
+        ...(out.length ? [h('li', { class: 'divider' }, `Nicht verfügbar (${out.length})`), ...out.map(renderChip)] : []),
+      );
+    }
+
+    // Phone bench bar: available players who aren't on the pitch.
+    function renderBench() {
+      const bench = state.players.filter((p) => isAvailable(p) && slotOf(p.id) == null);
+      els.benchList.replaceChildren(...(bench.length
+        ? bench.map((p) => h('li', { class: 'bench-chip', dataset: { drag: 'player', player: p.id } },
+          h('span', { class: 'num' }, badge(p)), p.name))
+        : [h('li', { class: 'empty' }, state.players.length ? 'Alle verfügbaren Spieler stehen auf dem Platz.' : 'Füge unten im Kader Spieler hinzu.')]));
+      updateSelection();
+    }
+
+    function renderChip(p) {
+      const slot = slotOf(p.id);
+      const status = statusOf(p);
+      const ok = status === 'available';
+      const cls = ['chip', slot != null && 'on-pitch', !ok && 'unavailable', ui.selected === p.id && 'selected'].filter(Boolean).join(' ');
+      // Players who aren't available get no data-drag, so they can't be picked.
+      return h('li', { class: cls, dataset: ok ? { drag: 'player', player: p.id } : { player: p.id } },
+        h('label', { class: 'status-pick', dataset: { status }, title: `${STATUSES[status].label} – Status ändern` },
+          STATUSES[status].icon,
+          h('select', { dataset: { statusFor: p.id }, 'aria-label': `Status von ${p.name}` },
+            ...Object.entries(STATUSES).map(([key, s]) => {
+              const opt = h('option', { value: key }, s.label);
+              opt.selected = key === status;
+              return opt;
+            })),
+        ),
+        h('span', { class: 'num' }, p.number || '–'),
+        h('span', { class: 'name', title: p.name }, p.name),
+        ok ? null : h('span', { class: 'status-text' }, STATUSES[status].label),
+        slot != null ? h('span', { class: 'pos' }, state.positions[slot].label) : null,
+        h('button', { class: 'remove edit-only', type: 'button', title: `${p.name} entfernen`, dataset: { remove: p.id } }, '×'),
+      );
+    }
+
+    function renderPitch() {
+      els.pitch.classList.toggle('editing', ui.editMode);
+      els.pitch.classList.toggle('has-selection', !!ui.selected);
+      els.slots.replaceChildren(...state.positions.map((pos, i) => {
+        const player = playerById(state.lineup[i]);
+        const cls = ['slot', player && 'filled', player && ui.selected === player.id && 'selected'].filter(Boolean).join(' ');
+        return h('div', {
+          class: cls,
+          dataset: { slot: i, drag: ui.editMode ? 'pos' : 'slot' },
+          style: { left: pos.x + '%', top: pos.y + '%' },
+          title: player ? `${pos.label}: ${player.name}` : pos.label,
+        },
+          player ? h('span', { class: 'tag' }, pos.label) : null,
+          h('div', { class: 'disc' }, player ? badge(player) : pos.label),
+          player ? h('span', { class: 'name' }, player.name) : null,
+        );
+      }));
+    }
+
+    function renderPrint() {
+      els.printTitle.textContent = state.title || `Startelf · ${formationName()}`;
+      const fmt = (p) => (p.number ? `${p.number} ${p.name}` : p.name);
+      const subs = state.players.filter((p) => isAvailable(p) && slotOf(p.id) == null);
+      const out = state.players.filter((p) => !isAvailable(p));
+      els.printSubs.textContent = [
+        subs.length ? 'Bank: ' + subs.map(fmt).join(', ') : '',
+        out.length ? 'Nicht verfügbar: ' + out.map((p) => `${fmt(p)} (${STATUSES[statusOf(p)].label.toLowerCase()})`).join(', ') : '',
+      ].filter(Boolean).join('\n');
+    }
+
+    // ---------- Lineup logic ----------
+    // Move/swap/substitute a player. fromSlot is null when the player comes from the bench.
+    function placePlayer(playerId, fromSlot, target) {
+      if (!target || !isAvailable(playerById(playerId))) return;
+      if (target.type === 'pool') {
+        if (fromSlot != null) state.lineup[fromSlot] = null;
+      } else {
+        const to = target.index;
+        if (to === fromSlot) return;
+        const occupant = state.lineup[to];
+        state.lineup[to] = playerId;
+        // From another position: swap. From the bench: the occupant is substituted back to the bench.
+        if (fromSlot != null) state.lineup[fromSlot] = occupant;
+      }
+      ui.selected = null;
+      commit();
+    }
+
+    function parsePlayer(text) {
+      const m = text.trim().match(/^#?(\d{1,3})[\s.)-]+(.+)$/);
+      return m ? { number: m[1], name: m[2].trim() } : { number: '', name: text.trim() };
+    }
+
+    function addPlayers(text) {
+      const added = text.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean).map((s) => ({ id: uid(), ...parsePlayer(s) }));
+      if (!added.length) return;
+      state.players.push(...added);
+      commit();
+    }
+
+    // ---------- Drag & drop (pointer events: mouse, touch and pen) ----------
+    let drag = null;
+
+    function dropTargetAt(x, y) {
+      const el = document.elementFromPoint(x, y);
+      if (!el) return null;
+      const slot = el.closest('[data-slot]');
+      if (slot) return { type: 'slot', index: +slot.dataset.slot, el: slot };
+      const pool = el.closest('[data-drop="pool"]');
+      if (pool) return { type: 'pool', el: pool };
+      return null;
+    }
+
+    function setHover(target) {
+      if (drag.hover?.el === target?.el) return;
+      drag.hover?.el.classList.remove('drop-target');
+      drag.hover = target;
+      // Dropping a bench player on the bench does nothing, so don't highlight it.
+      if (target && !(target.type === 'pool' && drag.fromSlot == null)) target.el.classList.add('drop-target');
+    }
+
+    const LONG_PRESS_MS = 280;
+
+    document.addEventListener('pointerdown', (e) => {
+      if (ui.viewing || e.button !== 0 || e.target.closest('button, input, select, dialog')) return;
+      const el = e.target.closest('[data-drag]');
+      if (!el) return;
+      const kind = el.dataset.drag;
+      drag = { kind, el, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, lastX: e.clientX, lastY: e.clientY, active: false, hover: null };
+      if (kind === 'player') {
+        drag.playerId = el.dataset.player;
+        drag.fromSlot = slotOf(drag.playerId);
+      } else {
+        drag.slot = +el.dataset.slot;
+        drag.fromSlot = drag.slot;
+        drag.playerId = state.lineup[drag.slot];
+      }
+      // Touch on a list chip: a swipe scrolls the list, holding still starts the drag.
+      if (e.pointerType === 'touch' && kind === 'player') {
+        drag.longPress = true;
+        drag.timer = setTimeout(() => {
+          if (!drag || drag.active) return;
+          startDrag();
+          moveGhost(drag.lastX, drag.lastY);
+          navigator.vibrate?.(15);
+        }, LONG_PRESS_MS);
+        return;
+      }
+      e.preventDefault();
+    });
+
+    // While dragging by touch, stop the page from scrolling instead of moving the player.
+    document.addEventListener('touchmove', (e) => { if (drag?.active) e.preventDefault(); }, { passive: false });
+    document.addEventListener('contextmenu', (e) => { if (e.target.closest('[data-drag]')) e.preventDefault(); });
+
+    function moveGhost(x, y) {
+      drag.ghost.style.left = x + 'px';
+      drag.ghost.style.top = y + 'px';
+      setHover(dropTargetAt(x, y));
+    }
+
+    // Scroll the page while a player is dragged near the top or bottom edge (bench bar excluded).
+    function autoScroll() {
+      if (!drag?.active || drag.kind === 'pos') return;
+      const edge = 70;
+      const barTop = document.querySelector('#benchBar').getBoundingClientRect().top || innerHeight;
+      const bottom = Math.min(innerHeight, barTop);
+      let dy = 0;
+      if (drag.lastY < edge) dy = -(edge - drag.lastY) / 4;
+      else if (drag.lastY > bottom - edge && drag.lastY < bottom) dy = (drag.lastY - (bottom - edge)) / 4;
+      // Only scroll once the finger has left the edge zones, so dragging up out of the bench bar doesn't scroll.
+      if (drag.lastY >= edge && drag.lastY <= bottom - edge) drag.scrollArmed = true;
+      if (dy && drag.scrollArmed) {
+        scrollBy(0, dy);
+        setHover(dropTargetAt(drag.lastX, drag.lastY));
+      }
+      requestAnimationFrame(autoScroll);
+    }
+
+    document.addEventListener('pointermove', (e) => {
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      drag.lastX = e.clientX;
+      drag.lastY = e.clientY;
+      if (!drag.active) {
+        const moved = Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY);
+        if (drag.longPress) {
+          if (moved > 10) { clearTimeout(drag.timer); drag = null; } // it's a scroll, not a drag
+          return;
+        }
+        if (moved < 6) return;
+        if (drag.kind === 'slot' && !drag.playerId) { drag = null; return; } // empty spot: nothing to drag
+        startDrag();
+      }
+      if (drag.kind === 'pos') {
+        const r = els.pitch.getBoundingClientRect();
+        const clamp = (v) => Math.round(Math.min(97, Math.max(3, v)) * 10) / 10;
+        const pos = state.positions[drag.slot];
+        pos.x = clamp(((e.clientX - r.left) / r.width) * 100);
+        pos.y = clamp(((e.clientY - r.top) / r.height) * 100);
+        drag.el.style.left = pos.x + '%';
+        drag.el.style.top = pos.y + '%';
+      } else {
+        moveGhost(e.clientX, e.clientY);
+      }
+    });
+
+    function startDrag() {
+      drag.active = true;
+      document.body.classList.add('is-dragging');
+      if (drag.kind === 'pos') { drag.el.classList.add('moving'); return; }
+      const p = playerById(drag.playerId);
+      drag.ghost = h('div', { class: 'ghost' }, h('span', { class: 'num' }, badge(p)), p.name);
+      document.body.append(drag.ghost);
+      drag.el.classList.add('dragging');
+      requestAnimationFrame(autoScroll);
+    }
+
+    function endDrag(e, cancelled) {
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      const d = drag;
+      drag = null;
+      clearTimeout(d.timer);
+      document.body.classList.remove('is-dragging');
+      d.ghost?.remove();
+      d.hover?.el.classList.remove('drop-target');
+      d.el.classList.remove('dragging', 'moving');
+      if (cancelled) { if (d.active) render(); return; }
+      if (!d.active) return handleTap(d);
+      if (d.kind === 'pos') return commit();
+      const target = dropTargetAt(e.clientX, e.clientY);
+      if (target) placePlayer(d.playerId, d.fromSlot, target);
+      else render();
+    }
+
+    document.addEventListener('pointerup', (e) => endDrag(e, false));
+    document.addEventListener('pointercancel', (e) => endDrag(e, true));
+
+    // Tap-to-place: tap a player (bench or pitch), then tap a position.
+    function handleTap(d) {
+      if (d.kind === 'pos') return;
+      if (d.kind === 'player') {
+        ui.selected = ui.selected === d.playerId ? null : d.playerId;
+      } else if (ui.selected && ui.selected !== d.playerId) {
+        return placePlayer(ui.selected, slotOf(ui.selected), { type: 'slot', index: d.slot });
+      } else {
+        ui.selected = d.playerId && ui.selected !== d.playerId ? d.playerId : null;
+      }
+      updateSelection();
+    }
+
+    // Toggle selection classes without rebuilding the DOM (a rebuild would swallow double-clicks).
+    function updateSelection() {
+      document.querySelectorAll('#pool [data-player], #benchList [data-player]').forEach((c) => c.classList.toggle('selected', c.dataset.player === ui.selected));
+      const sel = ui.selected && playerById(ui.selected);
+      els.benchHint.textContent = sel ? `Jetzt eine Position für ${sel.name} antippen` : 'Spieler antippen, dann Position – oder halten und ziehen';
+      els.benchHint.classList.toggle('active', !!sel);
+      els.slots.querySelectorAll('[data-slot]').forEach((s) => s.classList.toggle('selected', !!ui.selected && state.lineup[+s.dataset.slot] === ui.selected));
+      els.pitch.classList.toggle('has-selection', !!ui.selected);
+    }
+
+    // ---------- Other interactions ----------
+    els.addForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      addPlayers(els.addInput.value);
+      els.addInput.value = '';
+      els.addInput.focus();
+    });
+
+    // Pasting a multi-line squad list adds one player per line.
+    els.addInput.addEventListener('paste', (e) => {
+      const text = e.clipboardData.getData('text');
+      if (!/\n/.test(text.trim())) return;
+      e.preventDefault();
+      addPlayers(text);
+    });
+
+    els.pool.addEventListener('click', (e) => {
+      const id = e.target.closest('[data-remove]')?.dataset.remove;
+      if (!id) return;
+      state.players = state.players.filter((p) => p.id !== id);
+      state.lineup = state.lineup.map((pid) => (pid === id ? null : pid));
+      if (ui.selected === id) ui.selected = null;
+      commit();
+    });
+
+    // Marking a player as not available takes them off the pitch.
+    els.pool.addEventListener('change', (e) => {
+      const id = e.target.dataset.statusFor;
+      if (!id) return;
+      const p = playerById(id);
+      p.status = e.target.value;
+      if (!isAvailable(p)) {
+        state.lineup = state.lineup.map((pid) => (pid === id ? null : pid));
+        if (ui.selected === id) ui.selected = null;
+      }
+      commit();
+    });
+
+    els.pool.addEventListener('dblclick', (e) => {
+      const chip = e.target.closest('[data-player]');
+      if (!chip) return;
+      const p = playerById(chip.dataset.player);
+      const input = prompt('Spieler umbenennen (optional mit Rückennummer, z. B. „10 Max Müller“)', (p.number ? p.number + ' ' : '') + p.name);
+      if (!input?.trim()) return;
+      Object.assign(p, parsePlayer(input));
+      ui.selected = null;
+      commit();
+    });
+
+    els.slots.addEventListener('dblclick', (e) => {
+      if (!ui.editMode) return;
+      const slot = e.target.closest('[data-slot]');
+      if (!slot) return;
+      const pos = state.positions[+slot.dataset.slot];
+      const label = prompt('Name der Position', pos.label);
+      if (!label?.trim()) return;
+      pos.label = label.trim().toUpperCase().slice(0, 5);
+      commit();
+    });
+
+    els.select.addEventListener('change', () => {
+      state.formationId = els.select.value;
+      state.positions = clone(currentFormation().positions);
+      commit();
+    });
+
+    els.editBtn.addEventListener('click', () => { ui.editMode = !ui.editMode; render(); });
+
+    els.saveAsBtn.addEventListener('click', () => {
+      const base = currentFormation().name;
+      const name = prompt('Name für diese Formation', isCustom() ? base : `${base} (meine Version)`);
+      if (!name?.trim()) return;
+      const f = { id: 'c-' + uid(), name: name.trim(), positions: clone(state.positions) };
+      state.customFormations.push(f);
+      state.formationId = f.id;
+      commit();
+    });
+
+    els.updateBtn.addEventListener('click', () => {
+      currentFormation().positions = clone(state.positions);
+      commit();
+    });
+
+    els.resetBtn.addEventListener('click', () => {
+      state.positions = clone(currentFormation().positions);
+      commit();
+    });
+
+    els.deleteBtn.addEventListener('click', () => {
+      if (!confirm(`Formation „${currentFormation().name}“ löschen?`)) return;
+      state.customFormations = state.customFormations.filter((f) => f.id !== state.formationId);
+      state.formationId = PRESETS[1].id;
+      state.positions = clone(PRESETS[1].positions);
+      commit();
+    });
+
+    els.title.addEventListener('input', () => { state.title = els.title.value; save(); renderPrint(); });
+
+    els.clearBtn.addEventListener('click', () => {
+      if (!state.lineup.some(Boolean) || !confirm('Alle Spieler zurück auf die Bank setzen?')) return;
+      state.lineup = state.lineup.map(() => null);
+      commit();
+    });
+
+    els.printBtn.addEventListener('click', () => window.print());
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && ui.selected) { ui.selected = null; updateSelection(); }
+    });
+
+    // ---------- Share links (whole lineup encoded in the URL hash, no server needed) ----------
+    const SHARE_PREFIX = '#lineup=';
+    const STATUS_KEYS = Object.keys(STATUSES);
+
+    function encodeShare() {
+      const data = {
+        v: 1,
+        t: state.title,
+        n: currentFormation().name,
+        p: state.positions.map((p) => [p.label, p.x, p.y]),
+        s: state.players.map((p) => [p.name, p.number, STATUS_KEYS.indexOf(statusOf(p))]),
+        l: state.lineup.map((id) => state.players.findIndex((p) => p.id === id)),
+      };
+      const bytes = new TextEncoder().encode(JSON.stringify(data));
+      let bin = '';
+      bytes.forEach((b) => { bin += String.fromCharCode(b); });
+      return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    function decodeShare(code) {
+      try {
+        const bin = atob(code.replace(/-/g, '+').replace(/_/g, '/'));
+        const data = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))));
+        if (data?.v !== 1 || !Array.isArray(data.p) || !Array.isArray(data.s) || !Array.isArray(data.l)) return null;
+        return data;
+      } catch {
+        return null;
+      }
+    }
+
+    const shareUrl = () => location.href.split('#')[0] + SHARE_PREFIX + encodeShare();
+
+    function openSharedFromHash() {
+      if (!location.hash.startsWith(SHARE_PREFIX)) return false;
+      const data = decodeShare(location.hash.slice(SHARE_PREFIX.length));
+      if (!data) { alert('Dieser Link ist fehlerhaft oder unvollständig.'); return false; }
+      const players = data.s.map(([name, number, st]) => ({ id: uid(), name: String(name), number: String(number || ''), status: STATUS_KEYS[st] || 'available' }));
+      state.players = players;
+      state.positions = data.p.map(([label, x, y]) => ({ label: String(label), x: +x, y: +y }));
+      toGerman(state.positions);
+      state.lineup = state.positions.map((_, i) => players[data.l[i]]?.id ?? null);
+      state.title = String(data.t || '');
+      ui.viewing = true;
+      ui.sharedName = String(data.n || 'Geteilte Formation');
+      ui.editMode = false;
+      ui.selected = null;
+      return true;
+    }
+
+    function closeSharedView() {
+      ui.viewing = false;
+      history.replaceState(null, '', location.href.split('#')[0]);
+      load();
+      render();
+    }
+
+    els.importBtn.addEventListener('click', () => {
+      if (!confirm('Deinen Kader und deine Aufstellung durch diese geteilte Aufstellung ersetzen? Deine gespeicherten Formationen bleiben erhalten.')) return;
+      const same = allFormations().find((f) => JSON.stringify(f.positions) === JSON.stringify(state.positions));
+      if (same) {
+        state.formationId = same.id;
+      } else {
+        const f = { id: 'c-' + uid(), name: `${ui.sharedName} (geteilt)`, positions: clone(state.positions) };
+        state.customFormations.push(f);
+        state.formationId = f.id;
+      }
+      ui.viewing = false;
+      history.replaceState(null, '', location.href.split('#')[0]);
+      commit();
+    });
+
+    els.closeViewBtn.addEventListener('click', closeSharedView);
+    window.addEventListener('hashchange', () => { if (openSharedFromHash()) render(); });
+
+    // ---------- Lineup image (drawn on a canvas, no libraries) ----------
+    const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+    function ellipsize(ctx, text, max) {
+      if (ctx.measureText(text).width <= max) return text;
+      while (text && ctx.measureText(text + '…').width > max) text = text.slice(0, -1);
+      return text + '…';
+    }
+
+    // Wrap whole items (player names) onto lines, never splitting a name.
+    function wrapItems(ctx, items, max, sep = '   ·   ') {
+      const lines = [];
+      let line = '';
+      for (const item of items) {
+        const next = line ? line + sep + item : item;
+        if (line && ctx.measureText(next).width > max) { lines.push(line); line = item; } else line = next;
+      }
+      if (line) lines.push(line);
+      return lines;
+    }
+
+    function drawLineupImage() {
+      const W = 1080, M = 48, PW = W - 2 * M, PH = Math.round((PW * 105) / 68), HEADER = 150, R = 36;
+      const fontMain = cssVar('--font-main'), fontNum = cssVar('--font-num');
+      const font = (weight, px, family = fontMain) => `${weight} ${px}px ${family}`;
+      const fmt = (p) => (p.number ? `${p.number} ${p.name}` : p.name);
+      const subs = state.players.filter((p) => isAvailable(p) && slotOf(p.id) == null).map(fmt);
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.font = font(500, 30);
+      const subLines = wrapItems(ctx, subs, PW);
+      const subsH = subs.length ? 60 + subLines.length * 44 : 0;
+      canvas.width = W;
+      canvas.height = M + HEADER + PH + (subsH ? 40 + subsH : 0) + M;
+
+      // Background + header
+      ctx.fillStyle = cssVar('--color-bg');
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.textBaseline = 'alphabetic';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = cssVar('--color-text');
+      ctx.font = font(700, 52);
+      ctx.fillText(ellipsize(ctx, state.title || 'Startelf', PW), M, M + 52);
+      ctx.fillStyle = cssVar('--color-accent');
+      ctx.font = font(600, 32);
+      ctx.fillText(formationName(), M, M + 110);
+
+      // Pitch
+      const top = M + HEADER;
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(M, top, PW, PH, 16);
+      ctx.clip();
+      for (let i = 0; i < 10; i++) {
+        ctx.fillStyle = cssVar(i % 2 ? '--color-pitch-b' : '--color-pitch-a');
+        ctx.fillRect(M, top + (PH * i) / 10, PW, PH / 10 + 1);
+      }
+      ctx.translate(M, top);
+      ctx.scale(PW / 68, PH / 105);
+      ctx.strokeStyle = cssVar('--color-line');
+      ctx.fillStyle = cssVar('--color-line');
+      ctx.lineWidth = 0.3;
+      const dAngle = Math.atan2(5.5, 7.31);
+      ctx.beginPath();
+      ctx.rect(0.5, 0.5, 67, 104);
+      ctx.moveTo(0.5, 52.5); ctx.lineTo(67.5, 52.5);
+      ctx.moveTo(43.15, 52.5); ctx.arc(34, 52.5, 9.15, 0, Math.PI * 2);
+      ctx.rect(13.84, 0.5, 40.32, 16.5);
+      ctx.rect(24.84, 0.5, 18.32, 5.5);
+      ctx.rect(13.84, 88, 40.32, 16.5);
+      ctx.rect(24.84, 99, 18.32, 5.5);
+      ctx.moveTo(41.31, 17); ctx.arc(34, 11.5, 9.15, dAngle, Math.PI - dAngle);
+      ctx.moveTo(26.69, 88); ctx.arc(34, 93.5, 9.15, Math.PI + dAngle, Math.PI * 2 - dAngle);
+      ctx.stroke();
+      for (const [x, y] of [[34, 52.5], [34, 11.5], [34, 93.5]]) {
+        ctx.beginPath(); ctx.arc(x, y, 0.45, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+
+      // Positions and players
+      ctx.textAlign = 'center';
+      state.positions.forEach((pos, i) => {
+        const x = M + (pos.x / 100) * PW, y = top + (pos.y / 100) * PH;
+        const player = playerById(state.lineup[i]);
+        ctx.beginPath();
+        ctx.arc(x, y, R, 0, Math.PI * 2);
+        if (player) {
+          ctx.fillStyle = cssVar('--color-accent');
+          ctx.fill();
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = cssVar('--color-accent-ink');
+          ctx.stroke();
+          ctx.fillStyle = cssVar('--color-accent-ink');
+          ctx.font = font(700, 28, fontNum);
+          ctx.textBaseline = 'middle';
+          ctx.fillText(badge(player), x, y + 1);
+
+          ctx.font = font(700, 20);
+          ctx.textBaseline = 'alphabetic';
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+          ctx.shadowBlur = 4;
+          ctx.fillText(pos.label, x, y - R - 8);
+          ctx.shadowBlur = 0;
+
+          ctx.font = font(600, 24);
+          const name = ellipsize(ctx, player.name, 190);
+          const w = ctx.measureText(name).width + 24;
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+          ctx.beginPath();
+          ctx.roundRect(x - w / 2, y + R + 6, w, 34, 17);
+          ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(name, x, y + R + 24);
+        } else {
+          ctx.fillStyle = cssVar('--color-empty');
+          ctx.fill();
+          ctx.setLineDash([6, 5]);
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = cssVar('--color-line');
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = cssVar('--color-text');
+          ctx.font = font(700, 20);
+          ctx.textBaseline = 'middle';
+          ctx.fillText(pos.label, x, y + 1);
+        }
+      });
+
+      // Substitutes
+      if (subs.length) {
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        let y = top + PH + 40 + 30;
+        ctx.fillStyle = cssVar('--color-accent');
+        ctx.font = font(700, 30);
+        ctx.fillText('Bank', M, y);
+        ctx.fillStyle = cssVar('--color-text');
+        ctx.font = font(500, 30);
+        for (const line of subLines) { y += 44; ctx.fillText(line, M, y); }
+      }
+      return canvas;
+    }
+
+    // ---------- Share dialog ----------
+    let shareImage = null; // { file, url } prepared when the dialog opens, so sharing runs straight from the click
+
+    const canShareFiles = () => {
+      try { return !!navigator.canShare?.({ files: [new File([''], 'x.png', { type: 'image/png' })] }); } catch { return false; }
+    };
+    const imageFileName = () => 'aufstellung-' + ((state.title || formationName()).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'team') + '.png';
+    const shareText = () => state.title || `Startelf · ${formationName()}`;
+
+    const canCopyImage = () => isSecureContext && typeof ClipboardItem !== 'undefined' && !!navigator.clipboard?.write;
+    // Links only help others when the planner is at a public address (not a file, localhost or a home-network IP).
+    const isPrivateHost = () => /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|\[::1\]$)/.test(location.hostname) || location.hostname.endsWith('.local');
+    const canShareLinks = () => /^https?:$/.test(location.protocol) && !isPrivateHost();
+
+    function flashButton(btn, text) {
+      const original = btn.dataset.label || (btn.dataset.label = btn.textContent);
+      btn.textContent = text;
+      clearTimeout(btn.flashTimer);
+      btn.flashTimer = setTimeout(() => { btn.textContent = original; }, 2500);
+    }
+
+    els.shareBtn.addEventListener('click', () => {
+      if (shareImage) URL.revokeObjectURL(shareImage.url);
+      shareImage = null;
+      els.sharePreview.removeAttribute('src');
+      els.sharePreview.hidden = true; // no broken-image icon while the picture is being drawn
+      drawLineupImage().toBlob((blob) => {
+        const file = new File([blob], imageFileName(), { type: 'image/png' });
+        shareImage = { file, url: URL.createObjectURL(blob) };
+        els.sharePreview.src = shareImage.url;
+        els.sharePreview.hidden = false;
+      }, 'image/png');
+
+      // Offer only what this browser can actually do.
+      els.shareImageBtn.hidden = !canShareFiles();
+      els.copyImageBtn.hidden = !canCopyImage();
+      els.whatsappLinkBtn.hidden = els.copyLinkBtn.hidden = !canShareLinks();
+      els.downloadImageBtn.classList.toggle('primary', els.shareImageBtn.hidden && els.copyImageBtn.hidden);
+
+      const notes = [];
+      if (!els.shareImageBtn.hidden) notes.push('„Bild teilen“ öffnet das Teilen-Menü – WhatsApp und den Chat wählen, dann kommt das Bild als Foto an.');
+      else if (!els.copyImageBtn.hidden) notes.push('„Bild kopieren“ und dann im WhatsApp-Chat einfügen (Strg+V in WhatsApp Web oder Desktop).');
+      else notes.push('Bild herunterladen und in WhatsApp anhängen.');
+      if (!isSecureContext) notes.push('Bilder direkt an WhatsApp schicken geht nur, wenn der Planer über https läuft – auf einfachen http-Seiten (z. B. Testserver auf dem Laptop) blockieren Handys das.');
+      if (!canShareLinks()) notes.push('Links zum Teilen gibt es, sobald der Planer unter einer öffentlichen Adresse online ist (z. B. GitHub Pages) – jetzt könnten andere sie nicht öffnen.');
+      els.shareNote.textContent = notes.join(' ');
+      els.shareDialog.showModal();
+    });
+
+    els.shareImageBtn.addEventListener('click', async () => {
+      if (!shareImage) return;
+      try {
+        // Files only: with extra text, some WhatsApp versions send just the text and drop the image.
+        await navigator.share({ files: [shareImage.file] });
+      } catch (err) {
+        if (err.name !== 'AbortError') alert('Teilen hat nicht geklappt – nimm stattdessen „Bild herunterladen“.');
+      }
+    });
+
+    els.copyImageBtn.addEventListener('click', async () => {
+      if (!shareImage) return;
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': shareImage.file })]);
+        flashButton(els.copyImageBtn, 'Kopiert ✓ – jetzt einfügen');
+      } catch {
+        alert('Kopieren hat nicht geklappt – nimm stattdessen „Bild herunterladen“.');
+      }
+    });
+
+    els.downloadImageBtn.addEventListener('click', () => {
+      if (!shareImage) return;
+      h('a', { href: shareImage.url, download: shareImage.file.name }).click();
+    });
+
+    els.whatsappLinkBtn.addEventListener('click', () => {
+      window.open('https://wa.me/?text=' + encodeURIComponent(`${shareText()}\n${shareUrl()}`), '_blank', 'noopener');
+    });
+
+    els.copyLinkBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(shareUrl());
+        flashButton(els.copyLinkBtn, 'Kopiert ✓');
+      } catch {
+        prompt('Diesen Link kopieren:', shareUrl());
+      }
+    });
+
+    // ---------- Live ticker (German WhatsApp messages) ----------
+    const tk = {
+      tabs: document.querySelectorAll('[data-view]'), setup: $('#setupCard'),
+      teamName: $('#teamName'), teamShort: $('#teamShort'), oppName: $('#oppName'), oppShort: $('#oppShort'),
+      homeAway: $('#homeAway'), halfLength: $('#halfLength'),
+      sbHome: $('#sbHome'), sbAway: $('#sbAway'), sbScore: $('#sbScore'), clock: $('#clock'), phaseBtn: $('#phaseBtn'),
+      eventGrid: $('#eventGrid'), goalBtn: $('#goalBtn'), log: $('#eventLog'), newMatch: $('#newMatchBtn'),
+      dialog: $('#eventDialog'), form: $('#eventForm'), title: $('#evTitle'), fields: $('#evFields'),
+      minuteField: $('#evMinuteField'), minute: $('#evMinute'), note: $('#evNote'), noteLabel: $('#evNoteLabel'),
+      preview: $('#evPreview'), send: $('#evSend'), save: $('#evSave'), copy: $('#evCopy'), del: $('#evDelete'), cancel: $('#evCancel'),
+    };
+
+    const PHASES = {
+      pre: { label: 'Vor dem Spiel', next: 'kickoff', button: '📣 Anpfiff' },
+      first: { label: '1. Halbzeit', next: 'halftime', button: '⏸️ Halbzeit' },
+      half: { label: 'Halbzeitpause', next: 'secondhalf', button: '▶️ 2. Halbzeit anpfeifen' },
+      second: { label: '2. Halbzeit', next: 'fulltime', button: '🏁 Abpfiff' },
+      end: { label: 'Spielende', next: null },
+    };
+    // Saving a phase event moves the match on; deleting it moves it back.
+    const PHASE_EVENTS = { kickoff: ['pre', 'first'], halftime: ['first', 'half'], secondhalf: ['half', 'second'], fulltime: ['second', 'end'] };
+    const CARDS = { yellow: ['🟨', 'Gelbe Karte'], yellowred: ['🟨🟥', 'Gelb-Rote Karte'], red: ['🟥', 'Rote Karte'], time: ['⏱️', 'Zeitstrafe'] };
+    const eventTitle = (type) => ({
+      kickoff: '📣 Anpfiff', goal: `⚽ Tor für ${usShort()}`, goalAgainst: '🥅 Gegentor', sub: '🔁 Wechsel', card: '🟨 Karte',
+      chance: '🎯 Chance', note: '💬 Notiz', halftime: '⏸️ Halbzeit', secondhalf: '▶️ 2. Halbzeit', fulltime: '🏁 Abpfiff',
+    })[type];
+
+    const usShort = () => state.team.short || state.team.name || 'Wir';
+    const themShort = () => state.match.opponent.short || state.match.opponent.name || 'Gegner';
+    const usFull = () => state.team.name || usShort();
+    const themFull = () => state.match.opponent.name || themShort();
+    const snap = (p) => (p ? { id: p.id, name: p.name, number: p.number } : null);
+    const who = (p) => (p ? (p.number ? `${p.name} (${p.number})` : p.name) : 'unbekannt');
+    const fmtMin = (e) => (e.min ? (e.extra ? `${e.min}.+${e.extra}` : `${e.min}.`) : '');
+    const minTag = (e) => (e.min ? ` (${fmtMin(e)})` : '');
+    const scoreText = (us, them) => (state.match.home ? `${us}:${them}` : `${them}:${us}`);
+    const isRunning = () => state.match.phase === 'first' || state.match.phase === 'second';
+    const onPitchPlayers = () => state.lineup.map(playerById).filter(Boolean);
+    const benchPlayers = () => state.players.filter((p) => isAvailable(p) && slotOf(p.id) == null);
+
+    function scoreAt(ev, events = state.match.events) {
+      const s = { us: 0, them: 0 };
+      for (const e of events) {
+        if (e.type === 'goal') s.us++;
+        if (e.type === 'goalAgainst') s.them++;
+        if (e === ev) break;
+      }
+      return s;
+    }
+
+    function scoreLine(s, full = false) {
+      const us = full ? usFull() : usShort(), them = full ? themFull() : themShort();
+      return state.match.home ? `*${us} ${s.us}:${s.them} ${them}*` : `*${them} ${s.them}:${s.us} ${us}*`;
+    }
+
+    // Minute for a new event, from the match clock ("45.+2" style once a half runs over).
+    function minuteNow(type) {
+      const m = state.match;
+      if (!isRunning() || type === 'kickoff' || type === 'secondhalf') return { min: 0, extra: 0 };
+      const played = Math.floor(Math.max(0, Date.now() - m.periodStart) / 60000) + 1;
+      const base = m.phase === 'second' ? m.halfLength : 0;
+      return played > m.halfLength ? { min: base + m.halfLength, extra: played - m.halfLength } : { min: base + played, extra: 0 };
+    }
+
+    const minuteInput = (e) => (e.min ? (e.extra ? `${e.min}+${e.extra}` : `${e.min}`) : '');
+    function parseMinute(text) {
+      const m = text.match(/^\s*(\d{1,3})\s*(?:\+\s*(\d{1,2}))?\s*$/);
+      return m ? { min: +m[1], extra: +(m[2] || 0) } : null;
+    }
+
+    function lineupSnapshot() {
+      const groups = [['🧤 Tor', []], ['🛡️ Abwehr', []], ['⚙️ Mittelfeld', []], ['🎯 Angriff', []]];
+      state.positions.forEach((pos, i) => {
+        const p = playerById(state.lineup[i]);
+        if (!p) return;
+        const g = pos.label === 'TW' || pos.y >= 85 ? 0 : pos.y >= 62 ? 1 : pos.y >= 33 ? 2 : 3;
+        groups[g][1].push({ x: pos.x, p: snap(p) });
+      });
+      return {
+        formation: formationName(),
+        lines: groups.filter(([, ps]) => ps.length).map(([label, ps]) => [label, ps.sort((a, b) => a.x - b.x).map((o) => o.p)]),
+        bench: benchPlayers().map(snap),
+      };
+    }
+
+    const offender = (d, short = false) => (d.team === 'them'
+      ? `${d.number ? `Nr. ${d.number}` : 'Spieler'} (${themShort()})`
+      : `${short ? d.player?.name || 'unbekannt' : who(d.player)} – ${usShort()}`);
+    const nameOf = (p) => p?.name || 'unbekannt'; // short form for the final summary
+
+    // ---------- Message texts ----------
+    function buildMessage(e, events = state.match.events) {
+      const d = e.data || {};
+      const s = scoreAt(e, events);
+      const note = e.note ? `\n_${e.note}_` : '';
+      switch (e.type) {
+        case 'kickoff': {
+          const lu = d.lineup || { lines: [], bench: [] };
+          const pairing = state.match.home ? `${usFull()} – ${themFull()}` : `${themFull()} – ${usFull()}`;
+          return [
+            '📣 *Anpfiff!*', `*${pairing}*`, '',
+            `📋 *Aufstellung ${usShort()}*${lu.formation ? ` (${lu.formation})` : ''}`,
+            ...lu.lines.map(([label, ps]) => `${label}: ${ps.map(who).join(', ')}`),
+            ...(lu.bench.length ? [`🪑 Bank: ${lu.bench.map(who).join(', ')}`] : []),
+          ].join('\n') + note;
+        }
+        case 'goal': {
+          const lines = [`⚽ *TOR für ${usShort()}!*${minTag(e)}`, scoreLine(s)];
+          if (d.scorer === 'og') lines.push('Eigentor des Gegners');
+          else if (d.scorer) lines.push(`Torschütze: *${who(d.scorer)}*${d.kind ? ` (${d.kind})` : ''}`);
+          else if (d.kind) lines.push(d.kind);
+          if (d.assist) lines.push(`Vorlage: ${who(d.assist)}`);
+          return lines.join('\n') + note;
+        }
+        case 'goalAgainst': {
+          const lines = [`🥅 *Gegentor*${minTag(e)}`, scoreLine(s)];
+          const detail = [d.number && d.kind !== 'Eigentor' && `Torschütze: Nr. ${d.number}`, d.kind && (d.number && d.kind !== 'Eigentor' ? `(${d.kind})` : d.kind)];
+          if (d.number || d.kind) lines.push(detail.filter(Boolean).join(' '));
+          return lines.join('\n') + note;
+        }
+        case 'sub':
+          if (d.team === 'them') {
+            return [`🔁 *Wechsel bei ${themShort()}*${minTag(e)}`,
+              ...(d.pairs || []).flatMap((p) => [p.inNr && `⬆️ Nr. ${p.inNr}`, p.outNr && `⬇️ Nr. ${p.outNr}`]).filter(Boolean)].join('\n') + note;
+          }
+          return [`🔁 *Wechsel bei ${usShort()}*${minTag(e)}`, ...(d.pairs || []).flatMap((p) => [`⬆️ ${who(p.in)}`, `⬇️ ${who(p.out)}`])].join('\n') + note;
+        case 'card': {
+          const [icon, label] = CARDS[d.card] || CARDS.yellow;
+          return `${icon} *${label}*${minTag(e)}\n${offender(d)}` + note;
+        }
+        case 'chance': {
+          const lines = [`🎯 *Chance für ${d.team === 'them' ? themShort() : usShort()}*${minTag(e)}`];
+          if (d.team === 'them' ? d.number : d.player) lines.push(d.team === 'them' ? `Nr. ${d.number}` : who(d.player));
+          return lines.join('\n') + note;
+        }
+        case 'note':
+          return e.min ? `💬 *${fmtMin(e)}* ${e.note}` : `💬 ${e.note}`;
+        case 'halftime':
+          return `⏸️ *Halbzeit*\n${scoreLine(s)}` + note;
+        case 'secondhalf':
+          return `▶️ *Weiter geht's – 2. Halbzeit*\n${scoreLine(s)}` + note;
+        case 'fulltime':
+          return fullTimeMessage(e, events) + note;
+        default:
+          return '';
+      }
+    }
+
+    function fullTimeMessage(ev, events) {
+      const goals = [], cards = [], subs = [];
+      let us = 0, them = 0;
+      for (const e of events) {
+        if (e === ev) break;
+        const d = e.data || {};
+        if (e.type === 'goal') {
+          us++;
+          const scorer = d.scorer === 'og' ? 'Eigentor Gegner' : d.scorer ? nameOf(d.scorer) : usShort();
+          goals.push(`- ${fmtMin(e)} ${scoreText(us, them)} ${scorer}${d.assist ? `, Vorlage ${nameOf(d.assist)}` : ''}`.replace('-  ', '- '));
+        } else if (e.type === 'goalAgainst') {
+          them++;
+          goals.push(`- ${fmtMin(e)} ${scoreText(us, them)} ${d.number && d.kind !== 'Eigentor' ? `Nr. ${d.number} ` : ''}(${themShort()})`.replace('-  ', '- '));
+        } else if (e.type === 'card') {
+          cards.push(`- ${fmtMin(e)} ${(CARDS[d.card] || CARDS.yellow)[0]} ${offender(d, true)}`.replace('-  ', '- '));
+        } else if (e.type === 'sub') {
+          for (const p of d.pairs || []) {
+            subs.push((d.team === 'them'
+              ? `- ${fmtMin(e)} Nr. ${p.inNr || '?'} für Nr. ${p.outNr || '?'} (${themShort()})`
+              : `- ${fmtMin(e)} ${nameOf(p.in)} für ${nameOf(p.out)}`).replace('-  ', '- '));
+          }
+        }
+      }
+      const lines = ['🏁 *Abpfiff!*', scoreLine({ us, them }, true)];
+      if (goals.length) lines.push('', '⚽ *Tore*', ...goals);
+      if (cards.length) lines.push('', '🟨 *Karten*', ...cards);
+      if (subs.length) lines.push('', '🔁 *Wechsel*', ...subs);
+      return lines.join('\n');
+    }
+
+    // WhatsApp-style preview: *bold*, _italic_, ~strike~ (text is escaped first).
+    function waToHtml(text) {
+      return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\*([^*\n]+)\*/g, '<b>$1</b>')
+        .replace(/(^|[\s(])_([^_\n]+)_(?=$|[\s).,!?])/gm, '$1<i>$2</i>')
+        .replace(/~([^~\n]+)~/g, '<s>$1</s>');
+    }
+
+    // Phones: share menu (WhatsApp groups show up as direct targets). Elsewhere, or on plain http: wa.me link.
+    function sendWhatsApp(text) {
+      if (navigator.share && isSecureContext && matchMedia('(pointer: coarse)').matches) {
+        navigator.share({ text }).catch(() => {});
+      } else {
+        window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+      }
+    }
+
+    async function copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        // Fallback for plain http, where the clipboard API is blocked.
+        const ta = h('textarea', { style: { position: 'fixed', opacity: '0' } });
+        ta.value = text;
+        document.body.append(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+    }
+
+    // ---------- Event dialog ----------
+    let draft = null; // { type, editing: stored event or null, minute }
+
+    const field = (label, control) => h('label', { class: 'field' }, label, control);
+    function choice(name, options, value) {
+      const sel = h('select', { name }, ...options.map(([v, l]) => h('option', { value: v }, l)));
+      sel.value = value || options[0][0];
+      return sel;
+    }
+    function numInput(name, value) {
+      const input = h('input', { name, inputmode: 'numeric', placeholder: 'z. B. 9', maxlength: '3', autocomplete: 'off' });
+      input.value = value || '';
+      return input;
+    }
+    // Player picker; keeps a player chosen earlier even if they're no longer in the listed groups.
+    function playerSelect(name, groups, selected, emptyLabel, extra = []) {
+      const sel = h('select', { name }, h('option', { value: '' }, emptyLabel));
+      const selectedId = typeof selected === 'string' ? selected : selected?.id;
+      let found = !selectedId || extra.some(([v]) => v === selectedId);
+      for (const [label, ps] of groups) {
+        if (!ps.length) continue;
+        if (ps.some((p) => p.id === selectedId)) found = true;
+        sel.append(h('optgroup', { label }, ...ps.map((p) => h('option', { value: p.id }, who(p)))));
+      }
+      if (!found && selected?.id) sel.append(h('option', { value: selected.id }, who(selected)));
+      for (const [v, l] of extra) sel.append(h('option', { value: v }, l));
+      sel.value = selectedId || '';
+      return sel;
+    }
+    const resolvePlayer = (id, prev) => (id === 'og' ? 'og' : id ? snap(playerById(id)) || (prev?.id === id ? prev : null) : null);
+
+    function buildFields(type, d) {
+      const pitchFirst = [['Auf dem Platz', onPitchPlayers()], ['Bank', benchPlayers()]];
+      const benchFirst = [['Bank', benchPlayers()], ['Auf dem Platz', onPitchPlayers()]];
+      switch (type) {
+        case 'goal':
+          return [
+            field('Torschütze', playerSelect('scorer', pitchFirst, d.scorer, '— unbekannt —', [['og', 'Eigentor des Gegners']])),
+            field('Vorlage', playerSelect('assist', pitchFirst, d.assist, '— keine —')),
+            field('Art', choice('kind', [['', '—'], ['Elfmeter', 'Elfmeter'], ['Freistoß', 'Freistoß'], ['Kopfball', 'Kopfball'], ['Distanzschuss', 'Distanzschuss']], d.kind)),
+          ];
+        case 'goalAgainst':
+          return [h('div', { class: 'pair' },
+            field('Rückennummer', numInput('number', d.number)),
+            field('Art', choice('kind', [['', '—'], ['Elfmeter', 'Elfmeter'], ['Freistoß', 'Freistoß'], ['Kopfball', 'Kopfball'], ['Eigentor', 'Eigentor']], d.kind)))];
+        case 'sub': {
+          // Each row has player pickers (our team) and shirt-number fields (opponent); the team choice shows one of them.
+          const team = choice('team', [['us', usShort()], ['them', themShort()]], d.team);
+          const rows = h('div', { class: 'share-body' });
+          const addRow = (pair = {}) => {
+            const ours = h('div', { class: 'pair', dataset: { side: 'us' } },
+              field('⬇️ Raus', playerSelect('out', pitchFirst, pair.out, '— wählen —')),
+              field('⬆️ Rein', playerSelect('in', benchFirst, pair.in, '— wählen —')));
+            const theirs = h('div', { class: 'pair', dataset: { side: 'them' } },
+              field('⬇️ Raus (Nr.)', numInput('outNr', pair.outNr)),
+              field('⬆️ Rein (Nr.)', numInput('inNr', pair.inNr)));
+            rows.append(h('div', { class: 'sub-row' }, ours, theirs));
+            sync();
+          };
+          const sync = () => rows.querySelectorAll('[data-side]').forEach((el) => { el.hidden = el.dataset.side !== team.value; });
+          team.addEventListener('change', sync);
+          (d.pairs?.length ? d.pairs : [{}]).forEach(addRow);
+          const more = h('button', { type: 'button' }, '+ weiterer Wechsel');
+          more.addEventListener('click', () => { addRow(); updatePreview(); });
+          return [field('Team', team), rows, more];
+        }
+        case 'card':
+        case 'chance': {
+          const team = choice('team', [['us', usShort()], ['them', themShort()]], d.team);
+          const playerField = field('Spieler', playerSelect('player', pitchFirst, d.player, '— keine Angabe —'));
+          const numberField = field('Rückennummer', numInput('number', d.number));
+          const sync = () => { playerField.hidden = team.value !== 'us'; numberField.hidden = team.value === 'us'; };
+          team.addEventListener('change', sync);
+          sync();
+          const out = [h('div', { class: 'pair' }, field('Team', team), playerField, numberField)];
+          if (type === 'card') out.push(field('Karte', choice('card', [['yellow', '🟨 Gelb'], ['yellowred', '🟨🟥 Gelb-Rot'], ['red', '🟥 Rot'], ['time', '⏱️ Zeitstrafe']], d.card)));
+          return out;
+        }
+        default:
+          return [];
+      }
+    }
+
+    function readFields(type, prev) {
+      const val = (name) => tk.fields.querySelector(`[name="${name}"]`)?.value || '';
+      switch (type) {
+        case 'kickoff': return prev.lineup ? prev : { lineup: lineupSnapshot() };
+        case 'goal': return { scorer: resolvePlayer(val('scorer'), prev.scorer), assist: resolvePlayer(val('assist'), prev.assist), kind: val('kind') };
+        case 'goalAgainst': return { number: val('number').trim(), kind: val('kind') };
+        case 'sub': {
+          const rows = [...tk.fields.querySelectorAll('.sub-row')];
+          if (val('team') === 'them') {
+            return {
+              team: 'them',
+              pairs: rows.map((row) => ({
+                outNr: row.querySelector('[name="outNr"]').value.trim(),
+                inNr: row.querySelector('[name="inNr"]').value.trim(),
+              })).filter((p) => p.outNr || p.inNr),
+            };
+          }
+          return {
+            team: 'us',
+            pairs: rows.map((row, i) => ({
+              out: resolvePlayer(row.querySelector('[name="out"]').value, prev.pairs?.[i]?.out),
+              in: resolvePlayer(row.querySelector('[name="in"]').value, prev.pairs?.[i]?.in),
+            })).filter((p) => p.out || p.in),
+          };
+        }
+        case 'card': return { team: val('team'), player: resolvePlayer(val('player'), prev.player), number: val('number').trim(), card: val('card') };
+        case 'chance': return { team: val('team'), player: resolvePlayer(val('player'), prev.player), number: val('number').trim() };
+        default: return {};
+      }
+    }
+
+    function readDraft() {
+      const { type, editing } = draft;
+      const ev = editing ? { ...editing } : { id: uid(), type, ...draft.minute, sent: false };
+      if (type !== 'kickoff' && type !== 'secondhalf') Object.assign(ev, parseMinute(tk.minute.value) || { min: 0, extra: 0 });
+      ev.note = tk.note.value.trim();
+      ev.data = readFields(type, editing?.data || {});
+      return ev;
+    }
+
+    // The event list as it would be with the draft saved (for score and preview).
+    const eventsWith = (ev) => (draft.editing ? state.match.events.map((e) => (e === draft.editing ? ev : e)) : [...state.match.events, ev]);
+
+    function updatePreview() {
+      const ev = readDraft();
+      draft.text = buildMessage(ev, eventsWith(ev));
+      tk.preview.innerHTML = waToHtml(draft.text);
+    }
+
+    function openEvent(type, existing = null) {
+      draft = { type, editing: existing, minute: minuteNow(type), at: Date.now() };
+      tk.title.textContent = eventTitle(type);
+      tk.fields.replaceChildren(...buildFields(type, existing?.data || {}));
+      tk.fields.hidden = !tk.fields.children.length;
+      tk.minuteField.hidden = type === 'kickoff' || type === 'secondhalf';
+      tk.minute.value = minuteInput(existing || draft.minute);
+      tk.note.value = existing?.note || '';
+      tk.noteLabel.textContent = type === 'note' ? 'Text' : 'Zusatz (optional)';
+      tk.del.hidden = !existing;
+      tk.send.textContent = existing ? 'Speichern & erneut senden' : 'Speichern & an WhatsApp';
+      updatePreview();
+      tk.dialog.showModal();
+      tk.send.focus(); // not the minute field: that would pop up the phone keyboard every time
+    }
+
+    function applyEffects(ev) {
+      const m = state.match;
+      if (PHASE_EVENTS[ev.type]) {
+        m.phase = PHASE_EVENTS[ev.type][1];
+        if (ev.type === 'kickoff' || ev.type === 'secondhalf') m.periodStart = draft.at;
+      } else if (ev.type === 'sub' && ev.data.team !== 'them') {
+        for (const p of ev.data.pairs) {
+          const slot = p.out ? slotOf(p.out.id) : null;
+          const incoming = p.in && playerById(p.in.id);
+          if (slot != null && incoming && isAvailable(incoming) && slotOf(incoming.id) == null) state.lineup[slot] = incoming.id;
+        }
+      } else if (ev.type === 'card' && ev.data.team === 'us' && ev.data.player && (ev.data.card === 'red' || ev.data.card === 'yellowred')) {
+        const slot = slotOf(ev.data.player.id);
+        if (slot != null) state.lineup[slot] = null; // sent off: the position stays empty
+      }
+    }
+
+    function saveDraft(send) {
+      const { type, editing } = draft;
+      if (type === 'note' && !tk.note.value.trim()) { tk.note.focus(); return; }
+      const ev = readDraft();
+      if (type === 'sub' && !ev.data.pairs.some((p) => (ev.data.team === 'them' ? p.outNr || p.inNr : p.out && p.in))) {
+        alert(ev.data.team === 'them' ? 'Bitte mindestens eine Rückennummer eintragen.' : 'Bitte wählen, wer raus und wer rein geht.');
+        return;
+      }
+      const text = buildMessage(ev, eventsWith(ev));
+      if (send) {
+        sendWhatsApp(text); // straight from the click, so the browser allows opening WhatsApp
+        ev.sent = true;
+      }
+      if (editing) Object.assign(editing, ev);
+      else {
+        state.match.events.push(ev);
+        applyEffects(ev);
+      }
+      if (type === 'kickoff') tk.setup.open = false;
+      tk.dialog.close();
+      commit();
+    }
+
+    tk.send.addEventListener('click', () => saveDraft(true));
+    tk.save.addEventListener('click', () => saveDraft(false));
+    tk.cancel.addEventListener('click', () => tk.dialog.close());
+    tk.copy.addEventListener('click', async () => {
+      await copyText(draft.text);
+      flashButton(tk.copy, 'Kopiert ✓');
+    });
+    tk.del.addEventListener('click', () => {
+      const ev = draft.editing;
+      if (!ev || !confirm('Dieses Ereignis löschen?')) return;
+      state.match.events = state.match.events.filter((e) => e !== ev);
+      const [before, after] = PHASE_EVENTS[ev.type] || [];
+      if (after && state.match.phase === after) state.match.phase = before;
+      tk.dialog.close();
+      commit();
+    });
+    tk.form.addEventListener('submit', (e) => e.preventDefault());
+    tk.form.addEventListener('input', updatePreview);
+    tk.form.addEventListener('change', updatePreview);
+
+    // ---------- Ticker screen ----------
+    function renderClock() {
+      const m = state.match;
+      let text = PHASES[m.phase].label;
+      if (isRunning()) {
+        const secs = Math.floor(Math.max(0, Date.now() - m.periodStart) / 1000) + (m.phase === 'second' ? m.halfLength * 60 : 0);
+        text = `⏱️ ${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')} · ${text}`;
+      }
+      tk.clock.textContent = text;
+    }
+
+    function renderTicker() {
+      const ticker = !ui.viewing && state.view === 'ticker';
+      document.body.classList.toggle('view-ticker', ticker);
+      tk.tabs.forEach((b) => b.classList.toggle('active', b.dataset.view === (ticker ? 'ticker' : 'lineup')));
+      const m = state.match;
+      const setValue = (input, value) => { if (document.activeElement !== input) input.value = value; };
+      setValue(tk.teamName, state.team.name);
+      setValue(tk.teamShort, state.team.short);
+      setValue(tk.oppName, m.opponent.name);
+      setValue(tk.oppShort, m.opponent.short);
+      setValue(tk.halfLength, m.halfLength);
+      tk.homeAway.value = m.home ? 'home' : 'away';
+      renderScoreboard();
+
+      const phase = PHASES[m.phase];
+      tk.phaseBtn.hidden = !phase.next;
+      tk.phaseBtn.textContent = phase.button || '';
+      tk.goalBtn.textContent = `⚽ Tor ${usShort()}`;
+      tk.eventGrid.querySelectorAll('[data-event]').forEach((b) => { b.disabled = m.phase === 'pre' && b.dataset.event !== 'note'; });
+
+      const events = [...m.events].reverse(); // newest first
+      tk.log.replaceChildren(...(events.length ? events.map((e) => h('li', {},
+        h('span', { class: 'min' }, fmtMin(e) || '–'),
+        h('span', { class: 'text' }, buildMessage(e).split('\n').filter(Boolean).slice(0, 2).join(' · ').replace(/[*_~]/g, '').replace(/ \(\d+\.(\+\d+)?\)/, '')),
+        e.sent ? h('span', { class: 'sent', title: 'an WhatsApp gesendet' }, '✓') : null,
+        h('button', { type: 'button', title: 'An WhatsApp senden', dataset: { send: e.id } }, '📤'),
+        h('button', { type: 'button', title: 'Bearbeiten', dataset: { edit: e.id } }, '✎'),
+      )) : [h('li', { class: 'empty' }, 'Noch keine Ereignisse. Mit „Anpfiff“ geht’s los.')]));
+      updateWakeLock();
+    }
+
+    function renderScoreboard() {
+      const s = scoreAt(null);
+      const [home, away] = state.match.home ? [usShort(), themShort()] : [themShort(), usShort()];
+      tk.sbHome.textContent = home;
+      tk.sbAway.textContent = away;
+      tk.sbScore.textContent = scoreText(s.us, s.them);
+      renderClock();
+    }
+
+    tk.tabs.forEach((b) => b.addEventListener('click', () => { state.view = b.dataset.view; ui.selected = null; commit(); }));
+
+    const bindSetting = (input, apply) => input.addEventListener('input', () => { apply(input.value); save(); renderScoreboard(); });
+    bindSetting(tk.teamName, (v) => { state.team.name = v.trim(); });
+    bindSetting(tk.teamShort, (v) => { state.team.short = v.trim().toUpperCase(); });
+    bindSetting(tk.oppName, (v) => { state.match.opponent.name = v.trim(); });
+    bindSetting(tk.oppShort, (v) => { state.match.opponent.short = v.trim().toUpperCase(); });
+    bindSetting(tk.halfLength, (v) => { if (+v >= 5 && +v <= 60) state.match.halfLength = +v; });
+    tk.homeAway.addEventListener('change', () => { state.match.home = tk.homeAway.value === 'home'; commit(); });
+    [tk.teamName, tk.teamShort, tk.oppName, tk.oppShort].forEach((i) => i.addEventListener('change', () => render()));
+
+    tk.phaseBtn.addEventListener('click', () => { const next = PHASES[state.match.phase].next; if (next) openEvent(next); });
+    tk.eventGrid.addEventListener('click', (e) => { const type = e.target.closest('[data-event]')?.dataset.event; if (type) openEvent(type); });
+
+    tk.log.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      const ev = btn && state.match.events.find((x) => x.id === (btn.dataset.send || btn.dataset.edit));
+      if (!ev) return;
+      if (btn.dataset.edit) return openEvent(ev.type, ev);
+      sendWhatsApp(buildMessage(ev));
+      ev.sent = true;
+      commit();
+    });
+
+    // Correct the clock when the ticker was started late (or paused by mistake).
+    tk.clock.addEventListener('click', () => {
+      if (!isRunning()) return;
+      const m = state.match;
+      const input = prompt('Welche Spielminute läuft gerade? (z. B. 23)', minuteNow().min + minuteNow().extra);
+      const minute = parseInt(input, 10);
+      if (!minute) return;
+      const base = m.phase === 'second' ? m.halfLength : 0;
+      m.periodStart = Date.now() - Math.max(0, minute - base - 1) * 60000;
+      commit();
+    });
+
+    tk.newMatch.addEventListener('click', () => {
+      if (state.match.events.length && !confirm('Neues Spiel beginnen? Der Spielverlauf wird gelöscht (Team-Name bleibt).')) return;
+      state.match = defaultMatch(state.match.halfLength);
+      tk.setup.open = true;
+      commit();
+    });
+
+    setInterval(() => { if (isRunning() && state.view === 'ticker') renderClock(); }, 1000);
+
+    // Keep the phone screen on while the match runs in the ticker.
+    let wakeLock = null;
+    async function updateWakeLock() {
+      const want = state.view === 'ticker' && !ui.viewing && ['first', 'half', 'second'].includes(state.match.phase) && document.visibilityState === 'visible';
+      try {
+        if (want && !wakeLock && navigator.wakeLock) {
+          wakeLock = await navigator.wakeLock.request('screen');
+          wakeLock.addEventListener('release', () => { wakeLock = null; });
+        } else if (!want && wakeLock) {
+          await wakeLock.release();
+        }
+      } catch {
+        wakeLock = null;
+      }
+    }
+    document.addEventListener('visibilitychange', updateWakeLock);
+
+    load();
+    openSharedFromHash();
+    render();
+    tk.setup.open = state.match.phase === 'pre';
+  </script>
+</body>
+</html>
